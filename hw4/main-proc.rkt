@@ -23,6 +23,7 @@
   (cond ((=number? a1 0) a2)
         ((=number? a2 0) a1)
         ((and (number? a1) (number? a2)) (+ a1 a2))
+        ((eq? a1 a2) (make-product 2 a1))
         (else (list '+ a1 a2))))
 ;(define (make-sum a1 a2) (list '+ a1 a2))
 
@@ -51,6 +52,27 @@
       (caddr p)
       (build-newexp '* p)))
 
+;infix 
+(define (get-infix exp) 
+  (cadr exp))
+(define (is-infix exp)
+  (or (eq? (get-infix exp) '+) (eq? (get-infix exp) '*)))
+(define (get-operand1 exp)
+  (car exp))
+(define (get-operand2 exp)
+  (if (> (length exp) 3)
+      (cdr (cdr exp))
+      (caddr exp)))
+(define (sum-converter exp)
+  (make-sum (get-operand1 exp) (get-operand2 exp)))
+(define (multi-converter exp)
+  (if (= (length exp) 3)
+      (make-product (get-operand1 exp) (get-operand2 exp))
+      (list (get-infix (get-operand2 exp)) 
+            (make-product (get-operand1 exp) (caddr exp))
+            (get-operand2 (get-operand2 exp)))))
+                  
+
 ;My implementation
 ;power
 (define (fast-power b n)
@@ -71,6 +93,12 @@
         ((=number? b 0) 0)
         ((and (number? b) (number? e)) (fast-power b e))
         (else (list '** b e))))
+
+;sin and cos
+(define (sin? exp)
+  (eq? (car exp) 'sin))
+(define (cos? exp)
+  (eq? (car exp) 'cos))
 
       
 ;main process
@@ -94,6 +122,17 @@
                                     (make-exponentiation (base exp)
                                                          (make-sum (exponent exp) -1)))
                       (deriv (base exp) var)))
+       ((sin? exp) 
+        (make-product (deriv (cadr exp) var)
+                      (cons 'cos (cadr exp))))
+       ((cos? exp)
+        (list '-
+        (make-product (deriv (cadr exp) var)
+                      (cons 'sin (cadr exp)))))
+       ((eq? (cadr exp) '+)
+        (deriv (sum-converter exp) var))
+       ((eq? (cadr exp) '*)
+        (deriv (multi-converter exp) var))
        (else
         (error "unkown expression type -- DERIV" exp))))
 
@@ -109,9 +148,26 @@
 (display "exponentiations:\n")
 (display (deriv '(** x y) 'x))
 (display "\n")
+(display (deriv '(** x -2) 'x))
+(display "\n")
 (display "arbitrary number of operands:\n")
 (display (deriv '(+ x x x) 'x))
 (display "\n")
-(display (deriv '(* x y z) 'x))
+(display (deriv '(* x y (+ x 3)) 'x))
+(display "\n")
 
+(display "infix:\n")
+(display (deriv '(x + (3 * (x + (y + 2)))) 'x))
+(display "\n")
 
+(display "multiple infix:\n")
+(display (deriv '(x + 3 * ( x + y + z)) 'x))
+(display "\n")
+(display (deriv '(x * x + x) 'x))
+(display "\n")
+
+(display "sin and cos:\n")
+;(display (cdr '(sin (+ x 2))))
+(display (deriv '(sin (* x 2)) 'x))
+(display "\n")
+(display (deriv '(cos (* x 2)) 'x))
